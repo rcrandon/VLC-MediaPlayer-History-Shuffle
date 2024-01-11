@@ -40,11 +40,11 @@ end
 
 function descriptor()
   return {
-    title = "History Shuffle",
-    version = "1.0.1", 
-    shortdesc = "Shuffle Playlist", 
-    description = "Shuffles playlists based on the liking of the songs",
-    author = "Stefan Steininger", 
+    title = "VLC - MediaPlayer History Shuffle",
+    version = "1.0.0", 
+    shortdesc = "Shuffle Media Player", 
+    description = "Shuffles Media Player items based song likes and listening history",
+    author = "Randy Crandon", 
     capabilities = { "playing-listener"}
   }
 end
