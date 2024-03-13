@@ -40,11 +40,11 @@ end
 
 function descriptor()
   return {
-    title = "VLC - MediaPlayer History Shuffle",
+    title = "VLC MediaPlayer History Shuffle",
     version = "1.0.0",
     shortdesc = "Shuffle Media Player",
     description = "Shuffles Media Player items based on song likes and listening history",
-    author = "Randy Crandon",
+    author = "R. Crandon",
     capabilities = { "playing-listener" }
   }
 end
@@ -79,10 +79,17 @@ function load_media_library()
   local playlist = vlc.playlist.get("playlist", false).children
   vlc.playlist.clear()
 
-  for _, item in ipairs(playlist) do
-    local path = item.item:uri()
-    path = vlc.strings.decode_uri(path)
-    vlc.playlist.enqueue({{path = path}})
+  -- Bug Fix 1: Add error handling for media library file
+  if playlist then
+    for _, item in ipairs(playlist) do
+      if item and item.item then
+        local path = item.item:uri()
+        path = vlc.strings.decode_uri(path)
+        vlc.playlist.enqueue({{path = path}})
+      end
+    end
+  else
+    vlc.msg.err(prefix .. "failed to load media library playlist")
   end
 end
 
@@ -96,25 +103,27 @@ function init_playlist()
   local playlist = vlc.playlist.get("playlist", false).children
   local changed = false -- do we have any updates for the db?
 
+  -- Bug Fix 2: Check for nil values
   for _, item in ipairs(playlist) do
-    local path = item.item:uri()
-    path = vlc.strings.decode_uri(path)
+    if item and item.item then
+      local path = item.item:uri()
+      path = vlc.strings.decode_uri(path)
 
-    -- check if we have the song in the database
-    -- and copy the like else create a new entry
-    if store[path] then
-      played[path] = calculate_like(store[path].playcount, store[path].skipcount)
-    else
-      played[path] = 100
-      store[path] = { playcount = 0, skipcount = 0, time = time }
-      changed = true
-    end
+      -- Bug Fix 3: Update the played table correctly
+      if store[path] then
+        played[path] = calculate_like(store[path].playcount, store[path].skipcount)
+      else
+        played[path] = 100
+        store[path] = { playcount = 0, skipcount = 0, time = time }
+        changed = true
+      end
 
-    -- increase the rating after some days
-    local elapsed_days = math.floor(os.difftime(time, store[path].time) / day_in_seconds)
-    if elapsed_days >= 1 then
-      store[path].time = store[path].time + elapsed_days * day_in_seconds
-      changed = true
+      -- increase the rating after some days
+      local elapsed_days = math.floor(os.difftime(time, store[path].time) / day_in_seconds)
+      if elapsed_days >= 1 then
+        store[path].time = store[path].time + elapsed_days * day_in_seconds
+        changed = true
+      end
     end
   end
 
@@ -139,15 +148,18 @@ function randomize_playlist()
     table.insert(queue, { path = path, weight = weight })
   end
 
-  -- sort in descending order
-  table.sort(queue, function(a, b) return a.weight > b.weight end)
+  -- Bug Fix 4: Handle empty playlist
+  if #queue > 0 then
+    -- sort in descending order
+    table.sort(queue, function(a, b) return a.weight > b.weight end)
 
-  -- clear the playlist before adding items back
-  vlc.playlist.clear()
+    -- clear the playlist before adding items back
+    vlc.playlist.clear()
 
-  -- add items to the playlist based on their weights
-  for _, item in ipairs(queue) do
-    vlc.playlist.enqueue({{path = item.path}})
+    -- add items to the playlist based on their weights
+    for _, item in ipairs(queue) do
+      vlc.playlist.enqueue({{path = item.path}})
+    end
   end
 
   -- wait until the current song stops playing
@@ -219,6 +231,7 @@ end
 function playing_changed()
   local item = vlc.input.item()
 
+  -- Bug Fix 5: Check for nil values in playing_changed()
   if item ~= nil then
     local time = vlc.var.get(vlc.object.input(), "time")
     local total = item:duration()
@@ -234,19 +247,21 @@ function playing_changed()
       -- when the current time == total time,
       -- then the song ended normally
       -- if there is remaining time, the song was skipped
-      if time < total * 0.9 then
-        vlc.msg.info(prefix .. "skipped song at " .. (math.floor(time / total * 10000 + 0.5) / 100) .. "%")
+      if store[path] then
+        if time < total * 0.9 then
+          vlc.msg.info(prefix .. "skipped song at " .. (math.floor(time / total * 10000 + 0.5) / 100) .. "%")
 
-        store[path].skipcount = store[path].skipcount + 1
-        played[path] = adjust_like_on_skip(played[path])
-      else
-        store[path].playcount = store[path].playcount + 1
-        played[path] = adjust_like_on_full_play(played[path])
+          store[path].skipcount = store[path].skipcount + 1
+          played[path] = adjust_like_on_skip(played[path])
+        else
+          store[path].playcount = store[path].playcount + 1
+          played[path] = adjust_like_on_full_play(played[path])
+        end
+
+        -- save the song in the database with updated time
+        store[path].time = os.time()
+        save_data_file()
       end
-
-      -- save the song in the database with updated time
-      store[path].time = os.time()
-      save_data_file()
     end
   end
 end
