@@ -1,0 +1,3 @@
+node_modules/
+npm-debug.log*
+history_shuffle_data.json*

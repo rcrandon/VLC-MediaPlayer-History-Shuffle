@@ -1,0 +1,10 @@
+{
+  "name": "vlc-history-shuffle-tests",
+  "private": true,
+  "scripts": {
+    "test": "fengari tests/test_history_shuffle.lua"
+  },
+  "devDependencies": {
+    "fengari-node-cli": "^0.1.0"
+  }
+}
