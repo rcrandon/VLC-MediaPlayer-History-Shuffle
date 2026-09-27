@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.1
+
+### Fixed
+
+- Traverse folder children before considering the folder's own URI. VLC library folders can carry `vlc://nop` input items; previous versions shuffled those placeholders instead of their videos.
+- Exclude empty folders and standalone `vlc://nop` placeholders from generated decks.
+- Add regression coverage for nested folders, folders with input items, empty folders, and mixed flat and nested playlists.
+
 ## 3.1.0
 
 ### Fixed

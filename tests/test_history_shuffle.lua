@@ -13,6 +13,26 @@ end
 
 assert_equal(type(meta_changed), "function", "VLC 3 input listeners must provide meta_changed")
 
+-- Folder nodes have their own input item and URI in VLC. These are structural
+-- placeholders, not the media contained within the folder.
+vlc = { playlist = { get = function()
+    return { children = {
+        { path = "vlc://nop", item = { uri = function() return "vlc://nop" end }, children = {
+            { path = "file:///nested-a.mp4" },
+            { path = "file:///folder", children = { { path = "file:///nested-b.mkv" } } }
+        } },
+        { path = "vlc://nop", children = {} },
+        { path = "vlc://nop" },
+        { path = "file:///flat-c.mp4" }
+    } }
+end } }
+local nested_entries = module.get_playlist_entries("library")
+assert_equal(#nested_entries, 3, "nested folders must yield their media leaves")
+assert_equal(nested_entries[1].path, "file:///nested-a.mp4", "first nested media leaf")
+assert_equal(nested_entries[2].path, "file:///nested-b.mkv", "deeply nested media leaf")
+assert_equal(nested_entries[3].path, "file:///flat-c.mp4", "flat media remains included")
+vlc = nil
+
 local values = { 0.91, 0.12, 0.73, 0.35, 0.64, 0.27, 0.82, 0.44, 0.56, 0.18 }
 local cursor = 0
 local function deterministic_random()

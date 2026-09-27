@@ -2,7 +2,7 @@
 -- A history-aware, no-repeat shuffle deck for VLC 3.x and VLC 4.x.
 
 local HistoryShuffle = {
-    VERSION = "3.1.0",
+    VERSION = "3.1.1",
     PREFIX = "[History Shuffle] ",
     SCHEMA_VERSION = 3,
     state = {
@@ -682,7 +682,7 @@ local function normalize_playlist_entry(node)
     end
     local item = node.item
     local uri = item_uri(item) or node.path
-    if not uri or uri == "" then
+    if not uri or uri == "" or uri:lower():match("^vlc://nop/?$") then
         return nil
     end
     local name = node.name
@@ -701,11 +701,15 @@ end
 
 local function collect_playlist_entries(nodes, result)
     for _, node in ipairs(nodes or {}) do
-        local entry = normalize_playlist_entry(node)
-        if entry then
-            result[#result + 1] = entry
-        elseif node and node.children then
+        -- VLC gives folder nodes an input item and a URI (often vlc://nop).
+        -- Children identify a folder; visit them before considering its URI.
+        if node and type(node.children) == "table" then
             collect_playlist_entries(node.children, result)
+        else
+            local entry = normalize_playlist_entry(node)
+            if entry then
+                result[#result + 1] = entry
+            end
         end
     end
 end
@@ -1235,6 +1239,7 @@ if HISTORY_SHUFFLE_TEST == true then
         update_session_timing = update_session_timing,
         shuffle = HistoryShuffle.shuffle,
         replace_playlist = HistoryShuffle.replace_playlist,
+        get_playlist_entries = HistoryShuffle.get_playlist_entries,
         load_state = HistoryShuffle.load_state,
         get_state = function() return HistoryShuffle.state end,
         config = HistoryShuffle.config
